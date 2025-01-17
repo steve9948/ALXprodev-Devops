@@ -40,6 +40,9 @@ extract_data() {
             echo "Warning: $OUTPUT_FILE not found. Skipping..." >> "$ERROR_FILE"
         fi
     done
+
+    # Format CSV file to replace commas with semicolons for better readability using sed
+    sed -i 's/,/;/g' "$CSV_REPORT"
 }
 
 # Generate CSV report
@@ -51,7 +54,7 @@ done
 extract_data
 
 # Calculate average height and weight using awk
-awk -F, 'NR > 1 { total_height += $2; total_weight += $3; count++ } \
+awk -F';' 'NR > 1 { total_height += $2; total_weight += $3; count++ } \
     END { \
         if (count > 0) { \
             printf "\nAverage Height: %.2f m\n", total_height / count; \
