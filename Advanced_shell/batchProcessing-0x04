@@ -36,6 +36,8 @@ make_request() {
 
 # Function to handle parallel processing for fetching data
 fetch_data_in_parallel() {
+    declare -a JOBS=()
+
     for POKEMON in "${POKEMONS[@]}"; do
         OUTPUT_FILE="${POKEMON}.json"
 
@@ -49,10 +51,15 @@ fetch_data_in_parallel() {
                 echo "$NAME,$HEIGHT,$WEIGHT" >> "$CSV_REPORT"
             fi
         } &
+
+        # Store the job ID of the background process
+        JOBS+=("$!")
     done
 
     # Wait for all background processes to complete
-    wait
+    for JOB in "${JOBS[@]}"; do
+        wait "$JOB"
+    done
 }
 
 # Start fetching data in parallel
