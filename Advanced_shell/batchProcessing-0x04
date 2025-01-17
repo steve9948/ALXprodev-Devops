@@ -62,7 +62,10 @@ fetch_data_in_parallel() {
 
     # Wait for all background processes to complete
     for JOB in "${JOBS[@]}"; do
-        wait "$JOB"
+        wait "$JOB" || {
+            echo "Terminating failed background job $JOB." >> "$ERROR_FILE"
+            kill "$JOB" 2>/dev/null
+        }
     done
 
     echo "All background jobs completed."
