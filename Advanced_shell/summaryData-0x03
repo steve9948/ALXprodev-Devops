@@ -9,37 +9,46 @@ CSV_REPORT="pokemon_report.csv"
 # Header for the CSV file
 echo "Name,Height,Weight" > "$CSV_REPORT"
 
-# Loop through the list of Pokémon
-for POKEMON in "${POKEMONS[@]}"; do
-    OUTPUT_FILE="${POKEMON}.json"
-    
-    # Make the API request
-    curl -s -o "$OUTPUT_FILE" -w "%{http_code}" "$BASE_API_URL/$POKEMON" | {
-        read STATUS_CODE
+# Function to make API requests
+make_request() {
+    local POKEMON=$1
+    local OUTPUT_FILE=$2
 
-        # Check the HTTP status code
-        if [ "$STATUS_CODE" -ne 200 ]; then
-            echo "Error: Request failed with status code $STATUS_CODE for $POKEMON" >> "$ERROR_FILE"
-            echo "Details:" >> "$ERROR_FILE"
-            cat "$OUTPUT_FILE" >> "$ERROR_FILE"
-            echo "" >> "$ERROR_FILE" # Add a newline for readability
-            rm -f "$OUTPUT_FILE" # Remove the incomplete output file
-        else
-            echo "API request successful for $POKEMON. Data saved to $OUTPUT_FILE."
+    STATUS_CODE=$(curl -s -o "$OUTPUT_FILE" -w "%{http_code}" "$BASE_API_URL/$POKEMON")
 
-            # Extract data and append to the CSV file
+    if [ "$STATUS_CODE" -eq 200 ]; then
+        echo "API request successful for $POKEMON. Data saved to $OUTPUT_FILE."
+        return 0
+    else
+        echo "Failed to fetch data for $POKEMON (Status Code: $STATUS_CODE)." >> "$ERROR_FILE"
+        return 1
+    fi
+}
+
+# Extract data from JSON files and append to CSV
+extract_data() {
+    for POKEMON in "${POKEMONS[@]}"; do
+        OUTPUT_FILE="${POKEMON}.json"
+
+        if [ -f "$OUTPUT_FILE" ]; then
             NAME=$(jq -r '.name' "$OUTPUT_FILE")
             HEIGHT=$(jq -r '.height' "$OUTPUT_FILE" | awk '{printf "%.1f", $1 / 10}') # Convert decimeters to meters
             WEIGHT=$(jq -r '.weight' "$OUTPUT_FILE" | awk '{printf "%.1f", $1 / 10}') # Convert hectograms to kilograms
 
             echo "$NAME,$HEIGHT,$WEIGHT" >> "$CSV_REPORT"
+        else
+            echo "Warning: $OUTPUT_FILE not found. Skipping..." >> "$ERROR_FILE"
         fi
-    }
+    done
+}
 
-    # Delay to handle rate-limiting (1 second)
-    sleep 1
-
+# Generate CSV report
+for POKEMON in "${POKEMONS[@]}"; do
+    OUTPUT_FILE="${POKEMON}.json"
+    make_request "$POKEMON" "$OUTPUT_FILE"
 done
+
+extract_data
 
 # Calculate average height and weight using awk
 awk -F, 'NR > 1 { total_height += $2; total_weight += $3; count++ } \
@@ -51,4 +60,3 @@ awk -F, 'NR > 1 { total_height += $2; total_weight += $3; count++ } \
             print "No data to calculate averages." \
         } \
     }' "$CSV_REPORT"
-
