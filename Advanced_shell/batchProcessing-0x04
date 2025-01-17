@@ -34,24 +34,29 @@ make_request() {
     return 1
 }
 
-# Loop through the list of Pokémon
-for POKEMON in "${POKEMONS[@]}"; do
-    OUTPUT_FILE="${POKEMON}.json"
+# Function to handle parallel processing for fetching data
+fetch_data_in_parallel() {
+    for POKEMON in "${POKEMONS[@]}"; do
+        OUTPUT_FILE="${POKEMON}.json"
 
-    # Make the API request with retry logic
-    if make_request "$POKEMON" "$OUTPUT_FILE"; then
-        # Extract data and append to the CSV file
-        NAME=$(jq -r '.name' "$OUTPUT_FILE")
-        HEIGHT=$(jq -r '.height' "$OUTPUT_FILE" | awk '{printf "%.1f", $1 / 10}') # Convert decimeters to meters
-        WEIGHT=$(jq -r '.weight' "$OUTPUT_FILE" | awk '{printf "%.1f", $1 / 10}') # Convert hectograms to kilograms
+        {
+            if make_request "$POKEMON" "$OUTPUT_FILE"; then
+                # Extract data and append to the CSV file
+                NAME=$(jq -r '.name' "$OUTPUT_FILE")
+                HEIGHT=$(jq -r '.height' "$OUTPUT_FILE" | awk '{printf "%.1f", $1 / 10}') # Convert decimeters to meters
+                WEIGHT=$(jq -r '.weight' "$OUTPUT_FILE" | awk '{printf "%.1f", $1 / 10}') # Convert hectograms to kilograms
 
-        echo "$NAME,$HEIGHT,$WEIGHT" >> "$CSV_REPORT"
-    fi
+                echo "$NAME,$HEIGHT,$WEIGHT" >> "$CSV_REPORT"
+            fi
+        } &
+    done
 
-    # Delay to handle rate-limiting (1 second)
-    sleep 1
+    # Wait for all background processes to complete
+    wait
+}
 
-done
+# Start fetching data in parallel
+fetch_data_in_parallel
 
 # Calculate average height and weight using awk
 awk -F, 'NR > 1 { total_height += $2; total_weight += $3; count++ } \
