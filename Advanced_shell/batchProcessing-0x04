@@ -56,10 +56,16 @@ fetch_data_in_parallel() {
         JOBS+=("$!")
     done
 
+    # List all background jobs for verification
+    echo "Background jobs started:"
+    jobs
+
     # Wait for all background processes to complete
     for JOB in "${JOBS[@]}"; do
         wait "$JOB"
     done
+
+    echo "All background jobs completed."
 }
 
 # Start fetching data in parallel
